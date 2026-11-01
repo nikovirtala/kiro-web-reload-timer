@@ -87,6 +87,12 @@ function tick() {
       episodeCounted = true;
     }
     if (wasShowing && delta <= MAX_DELTA_MS) pendingMs += delta;
+  } else if (wasShowing && delta <= MAX_DELTA_MS) {
+    // Checks run once a second, so the message appeared somewhere in the second
+    // before it was first seen, and went away somewhere in the second before it
+    // was first missed. The first second isn't counted, so count the last one;
+    // on average the two cancel out.
+    pendingMs += delta;
   }
   wasShowing = showing;
 }

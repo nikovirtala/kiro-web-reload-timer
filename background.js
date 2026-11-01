@@ -28,7 +28,13 @@ function addTime({ ms, episodes, at }) {
 
 api.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "add" && Number.isFinite(msg.ms) && Number.isFinite(msg.episodes)) {
-    addTime(msg).then(() => sendResponse({ ok: true }));
+    addTime(msg).then(
+      () => sendResponse({ ok: true }),
+      (err) => {
+        console.warn("[Kiro Web Reload Timer] storage write failed:", err);
+        sendResponse({ ok: false, error: String(err) });
+      },
+    );
     return true; // keep the channel open for the async response
   }
   if (msg?.type === "reset") {

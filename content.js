@@ -48,6 +48,14 @@ function checkTarget() {
 // Switching tabs or scrolling away and back during the same appearance
 // doesn't count again; the count resets only when the message goes away.
 let episodeCounted = false;
+let wasPresent = false;
+
+// Diagnostics: shows up in the page's Web Inspector console.
+const LOG_PREFIX = "[Kiro Web Reload Timer]";
+function log(message) {
+  console.info(`${LOG_PREFIX} ${message}`);
+}
+log(`content script loaded on ${location.href}`);
 
 function tick() {
   const now = Date.now();
@@ -55,6 +63,10 @@ function tick() {
   lastTick = now;
 
   const { present, showing } = checkTarget();
+  if (present !== wasPresent || showing !== wasShowing) {
+    log(`message in page: ${present}, on screen: ${showing}, tab: ${document.visibilityState}`);
+  }
+  wasPresent = present;
   if (!present) episodeCounted = false;
   if (showing) {
     if (!episodeCounted) {
@@ -71,7 +83,14 @@ function flush() {
   const msg = { type: "add", ms: pendingMs, episodes: pendingEpisodes, at: Date.now() };
   pendingMs = 0;
   pendingEpisodes = 0;
-  api.runtime.sendMessage(msg).catch(() => {});
+  Promise.resolve(api.runtime.sendMessage(msg))
+    .then(() => log(`saved ${msg.ms} ms, ${msg.episodes} new appearance(s)`))
+    .catch((err) => {
+      // Keep the numbers so the next flush retries them.
+      pendingMs += msg.ms;
+      pendingEpisodes += msg.episodes;
+      console.warn(`${LOG_PREFIX} saving failed, will retry:`, err);
+    });
 }
 
 setInterval(tick, TICK_MS);

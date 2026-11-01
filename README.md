@@ -1,3 +1,5 @@
+<img src="icons/icon-128.png" width="64" alt="">
+
 # kiro-web-reload-timer
 
 A browser extension that tracks how often the "Reloading sandbox" message is shown to you on [app.kiro.dev](https://app.kiro.dev), and for how long, per day.

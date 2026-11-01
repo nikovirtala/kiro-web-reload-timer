@@ -35,6 +35,7 @@ async function render() {
     row.insertCell().textContent = fmt(day.ms);
     row.insertCell().textContent = `${day.episodes}×`;
   }
+  document.getElementById("historyEmpty").hidden = table.rows.length > 0;
 }
 
 document.getElementById("reset").addEventListener("click", async () => {

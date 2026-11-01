@@ -3,21 +3,70 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      body { font: 13px system-ui, sans-serif; width: 260px; margin: 12px; }
-      h1 { font-size: 14px; margin: 0 0 8px; }
-      .today { font-size: 24px; font-weight: 600; }
-      .sub { color: #666; margin-bottom: 12px; }
-      table { width: 100%; border-collapse: collapse; }
-      td { padding: 2px 0; }
+      /* Colors from kiro.dev: purple-500, purple-300 and the "prey" greys. */
+      :root {
+        --purple: #9046ff;
+        --purple-light: #c59eff;
+        --bg: #19161d;
+        --surface: #211d25;
+        --border: #352f3d;
+        --text: #f2f1f4;
+        --muted: #938f9b;
+      }
+      body {
+        font: 13px ui-sans-serif, system-ui, -apple-system, sans-serif;
+        width: 280px;
+        margin: 0;
+        padding: 14px;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+      header img { width: 20px; height: 20px; }
+      h1 { font-size: 13px; font-weight: 600; margin: 0; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .label { color: var(--muted); font-size: 12px; }
+      .today { font-size: 28px; font-weight: 600; color: var(--purple-light); margin: 2px 0; }
+      .sub { color: var(--muted); }
+      table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      td { padding: 4px 0; border-bottom: 1px solid var(--border); }
+      tr:last-child td { border-bottom: none; }
+      td:first-child { color: var(--muted); }
       td:not(:first-child) { text-align: right; }
-      button { margin-top: 10px; }
+      .empty { color: var(--muted); }
+      button {
+        font: inherit;
+        color: var(--text);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      button:hover { border-color: var(--purple); color: var(--purple-light); }
     </style>
   </head>
   <body>
-    <h1>"Reloading sandbox" today</h1>
-    <div class="today" id="today">0s</div>
-    <div class="sub" id="todayEpisodes">0 times</div>
-    <table id="history"></table>
+    <header>
+      <img src="icons/icon-32.png" alt="" />
+      <h1>Kiro Web Reload Timer</h1>
+    </header>
+    <div class="card">
+      <div class="label">"Reloading sandbox" today</div>
+      <div class="today" id="today">0s</div>
+      <div class="sub" id="todayEpisodes">0 times</div>
+    </div>
+    <div class="card">
+      <div class="label">Last 14 days</div>
+      <table id="history"></table>
+      <div class="empty" id="historyEmpty">No earlier days yet.</div>
+    </div>
     <button id="reset">Reset all data</button>
     <script src="popup.js"></script>
   </body>

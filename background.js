@@ -17,7 +17,7 @@ function handle(msg) {
   );
 }
 
-const onMessage = (globalThis.browser ?? globalThis.chrome)?.runtime?.onMessage;
+const onMessage = (extBrowser ?? extChrome)?.runtime?.onMessage;
 
 onMessage?.addListener((msg, _sender, sendResponse) => {
   const valid =

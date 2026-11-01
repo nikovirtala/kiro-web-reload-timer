@@ -6,6 +6,8 @@ A browser extension that tracks how often the "Reloading sandbox" message is sho
 
 ## What it counts
 
+Only the message in app.kiro.dev's session loading screen counts, not the same words elsewhere on the page, such as in chat messages.
+
 - **Time:** seconds the message is on screen in the visible tab. Time stops when you switch tabs, minimize the window, scroll it out of view, or the message goes away.
 - **Times shown:** each appearance of the message that you actually saw. Switching tabs or scrolling away and back during the same appearance doesn't count again.
 
@@ -50,6 +52,28 @@ The generated project points at the files in this folder, so code changes here a
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and select this folder.
 
+After changing the code, reload the extension: in Chrome, click reload on its card in `chrome://extensions`. In Safari, remove the temporary extension and add the folder again. Then reload app.kiro.dev.
+
 ## Changing the tracked text
 
-Edit `TARGET_TEXT` at the top of `content.js`, then reload the extension.
+At the top of `content.js`:
+
+- `TARGET_TEXT` is the exact text to look for.
+- `TARGET_CONTAINER` limits the search to app.kiro.dev's session loading view (`[data-testid="session-loading-scroll-area"]`), so the same words in a chat message aren't counted. If app.kiro.dev changes that view and nothing gets counted anymore, this selector is the first thing to check.
+
+Reload the extension after editing.
+
+## Troubleshooting
+
+- Open the console on app.kiro.dev (Web Inspector in Safari, DevTools in Chrome). Warnings start with `[Kiro Web Reload Timer]`.
+- For a line on every appearance and save, set `DEBUG = true` in `content.js` and reload the extension.
+- The popup has its own console: right-click inside it and choose **Inspect Element** (Safari) or **Inspect** (Chrome).
+
+## Files
+
+| File | What it does |
+|---|---|
+| `content.js` | Runs on app.kiro.dev. Detects the message once a second and saves the totals. |
+| `api.js` | Finds the extension API and wraps storage. Shared by the content script and the popup. |
+| `popup.html`, `popup.js` | Toolbar popup. In Safari, also moves totals from the page into extension storage. |
+| `icons/` | Extension icon (`icon.svg`) and PNG sizes. |

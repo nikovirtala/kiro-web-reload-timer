@@ -8,16 +8,41 @@
 
 //
 // Why that happens: app.kiro.dev adds an SVG icon sprite containing
-// <symbol id="browser">. Browsers expose elements with an id as globals, and
-// in Safari that element hides the extension's `browser` object from the
-// content script. So the content script runs at document_start, before the
-// sprite exists, and the API objects are captured here, once. If an element
-// is already in the way, its id is removed for a moment to read the real
-// object behind it.
+// <symbol id="browser">, and browsers expose elements with an id as globals,
+// so globalThis.browser is that element. Safari can also provide `browser` as
+// a variable in scope rather than a property of globalThis. So read the plain
+// names `browser` and `chrome` first, which find such a variable, and fall
+// back to globalThis. If an element is in the way there, its id is removed
+// for a moment to read the real object behind it.
+
+const isElement = (o) => typeof Element !== "undefined" && o instanceof Element;
+const notElement = (o) => (isElement(o) ? undefined : o);
+
+// Where each object was found, for the diagnostics log.
+const apiSource = { browser: "none", chrome: "none" };
 
 function readExtensionGlobals() {
+  /* global browser, chrome */
+  const inScope = [
+    typeof browser !== "undefined" ? notElement(browser) : undefined,
+    typeof chrome !== "undefined" ? notElement(chrome) : undefined,
+  ];
+  const fromGlobal = readGlobalObject();
+  return ["browser", "chrome"].map((name, i) => {
+    if (inScope[i]?.runtime) {
+      apiSource[name] = inScope[i] === fromGlobal[i] ? "globalThis" : "variable";
+      return inScope[i];
+    }
+    if (fromGlobal[i]?.runtime) {
+      apiSource[name] = "globalThis";
+      return fromGlobal[i];
+    }
+    return undefined;
+  });
+}
+
+function readGlobalObject() {
   const read = () => [globalThis.browser, globalThis.chrome];
-  const isElement = (o) => typeof Element !== "undefined" && o instanceof Element;
   if (!read().some(isElement)) return read();
 
   // Every element named "browser" or "chrome", with the id it had.
@@ -26,7 +51,7 @@ function readExtensionGlobals() {
   );
   for (const [el] of blockers) el.removeAttribute("id");
   try {
-    return read().map((o) => (isElement(o) ? undefined : o));
+    return read().map(notElement);
   } finally {
     for (const [el, id] of blockers) el.setAttribute("id", id);
   }

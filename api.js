@@ -6,13 +6,40 @@
 // actually has storage, and if there is none (Safari has known bugs with
 // storage in content scripts), ask the background script to save instead.
 
-const candidates = () => [globalThis.browser, globalThis.chrome];
+//
+// Why that happens: app.kiro.dev adds an SVG icon sprite containing
+// <symbol id="browser">. Browsers expose elements with an id as globals, and
+// in Safari that element hides the extension's `browser` object from the
+// content script. So the content script runs at document_start, before the
+// sprite exists, and the API objects are captured here, once. If an element
+// is already in the way, its id is removed for a moment to read the real
+// object behind it.
+
+function readExtensionGlobals() {
+  const read = () => [globalThis.browser, globalThis.chrome];
+  const isElement = (o) => typeof Element !== "undefined" && o instanceof Element;
+  if (!read().some(isElement)) return read();
+
+  // Every element named "browser" or "chrome", with the id it had.
+  const blockers = [...(globalThis.document?.querySelectorAll("[id='browser'], [id='chrome']") ?? [])].map(
+    (el) => [el, el.id],
+  );
+  for (const [el] of blockers) el.removeAttribute("id");
+  try {
+    return read().map((o) => (isElement(o) ? undefined : o));
+  } finally {
+    for (const [el, id] of blockers) el.setAttribute("id", id);
+  }
+}
+
+const [extBrowser, extChrome] = readExtensionGlobals();
+const candidates = () => [extBrowser, extChrome];
 
 const api = candidates().find((c) => c?.storage?.local) ?? null;
 const messenger = candidates().find((c) => typeof c?.runtime?.sendMessage === "function") ?? null;
 
 const nameOf = (o) =>
-  o === null ? "none" : o === globalThis.browser ? "browser" : "chrome";
+  o === null ? "none" : o === extBrowser ? "browser" : "chrome";
 
 // Calls an extension API method that may return a promise (Safari, Firefox,
 // Chrome MV3) or only support a callback.
@@ -29,7 +56,7 @@ function callApi(fn, thisArg, args, timeoutMs = 5000) {
     }
     try {
       const result = fn.call(thisArg, ...args, (value) => {
-        const lastError = globalThis.chrome?.runtime?.lastError;
+        const lastError = extChrome?.runtime?.lastError;
         finish(lastError ? new Error(lastError.message) : null, value);
       });
       if (result && typeof result.then === "function") {

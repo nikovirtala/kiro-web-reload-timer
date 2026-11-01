@@ -62,8 +62,8 @@ log(`content script loaded on ${location.href}`);
     return `${kind} {${keys.sort().join(",") || "no enumerable keys"}}; storage: ${typeof o.storage}; runtime.id: ${o.runtime?.id ?? "none"}`;
   };
   log(`storage via: ${nameOf(api)}; messaging via: ${nameOf(messenger)}`);
-  log(`browser = ${describe(globalThis.browser)}`);
-  log(`chrome = ${describe(globalThis.chrome)}`);
+  log(`browser = ${describe(extBrowser)}`);
+  log(`chrome = ${describe(extChrome)}`);
 }
 
 function tick() {

@@ -9,7 +9,12 @@ A browser extension that tracks how often the "Reloading sandbox" message is sho
 - **Time:** seconds the message is on screen in the visible tab. Time stops when you switch tabs, minimize the window, scroll it out of view, or the message goes away.
 - **Times shown:** each appearance of the message that you actually saw. Switching tabs or scrolling away and back during the same appearance doesn't count again.
 
-Click the toolbar icon to see today's totals and the last 14 days. Data stays in the browser's local extension storage.
+Click the toolbar icon to see today's totals and the last 14 days. Data stays in your browser.
+
+### Where data is saved
+
+- **Chrome:** in the extension's local storage.
+- **Safari:** on app.kiro.dev, Safari gives the extension's page script no access to extension storage. The script saves to app.kiro.dev's own `localStorage` (key `kiroWebReloadTimer.days`), and the popup moves those totals into extension storage each time you open it. So in Safari, open the popup while an app.kiro.dev tab is open to see the latest numbers. If app.kiro.dev clears its site data before you open the popup, the not-yet-moved totals are lost.
 
 ## Install
 

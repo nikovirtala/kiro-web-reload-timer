@@ -1,6 +1,12 @@
 // Runs on app.kiro.dev, after api.js. Once a second, checks whether the
 // target text is visible on screen in the active tab, and saves the daily
-// totals to extension storage.
+// totals.
+//
+// Where totals go:
+// - Extension storage, when this script can reach it (Chrome).
+// - Otherwise app.kiro.dev's own localStorage (Safari, where content scripts on
+//   this site get no extension API). The popup moves those totals into
+//   extension storage whenever it's opened.
 
 const TARGET_TEXT = "Reloading sandbox";
 const TICK_MS = 1000;
@@ -53,19 +59,7 @@ function log(message) {
   console.info(`${LOG_PREFIX} ${message}`);
 }
 log(`content script loaded on ${location.href}`);
-{
-  const describe = (o) => {
-    if (o === undefined || o === null) return String(o);
-    const keys = [];
-    for (const k in o) keys.push(k);
-    const kind = o.constructor?.name || typeof o;
-    return `${kind} {${keys.sort().join(",") || "no enumerable keys"}}; storage: ${typeof o.storage}; runtime.id: ${o.runtime?.id ?? "none"}`;
-  };
-  log(`storage via: ${nameOf(api)}; messaging via: ${nameOf(messenger)}`);
-  log(`browser (found via ${apiSource.browser}) = ${describe(extBrowser)}`);
-  log(`chrome (found via ${apiSource.chrome}) = ${describe(extChrome)}`);
-  log(`typeof browser: ${typeof browser}; typeof chrome: ${typeof chrome}; globalThis.browser: ${describe(globalThis.browser).slice(0, 40)}`);
-}
+log(`saving to ${api ? "extension storage" : "page storage (popup collects it)"}`);
 
 function tick() {
   const now = Date.now();
@@ -91,11 +85,19 @@ function tick() {
 // Saves run one at a time per tab so they can't overwrite each other.
 let saving = Promise.resolve();
 
-// Saves directly to extension storage when this script can reach it,
-// otherwise through the background script.
+function saveToPage(key, ms, episodes) {
+  const all = JSON.parse(localStorage.getItem(PAGE_STORAGE_KEY) || "{}");
+  const day = all[key] || { ms: 0, episodes: 0 };
+  day.ms += ms;
+  day.episodes += episodes;
+  all[key] = day;
+  localStorage.setItem(PAGE_STORAGE_KEY, JSON.stringify(all));
+  return day;
+}
+
 function save(key, ms, episodes) {
-  if (api) return addToDay(key, ms, episodes).then((day) => ({ via: "storage", day }));
-  return sendToBackground({ type: "add", key, ms, episodes }).then((res) => ({ via: "background", day: res.day }));
+  if (api) return addToDay(key, ms, episodes).then((day) => ({ via: "extension storage", day }));
+  return Promise.resolve().then(() => ({ via: "page storage", day: saveToPage(key, ms, episodes) }));
 }
 
 function flush() {
@@ -108,7 +110,8 @@ function flush() {
   saving = saving
     .then(() => save(key, ms, episodes))
     .then(({ via, day }) => {
-      log(`saved ${ms} ms, ${episodes} new appearance(s) via ${via}; ${key} total ${day.ms} ms, ${day.episodes}`);
+      const label = via === "page storage" ? "not yet collected by popup" : "total";
+      log(`saved ${ms} ms, ${episodes} new appearance(s) to ${via}; ${key} ${label}: ${day.ms} ms, ${day.episodes}`);
     })
     .catch((err) => {
       // Keep the numbers so the next flush retries them.

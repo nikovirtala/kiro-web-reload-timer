@@ -54,8 +54,16 @@ function log(message) {
 }
 log(`content script loaded on ${location.href}`);
 {
-  const describe = (o) => (o ? Object.keys(o).sort().join(",") || "(no keys)" : String(o));
-  log(`using extension API: ${apiName}; browser: ${describe(globalThis.browser)}; chrome: ${describe(globalThis.chrome)}`);
+  const describe = (o) => {
+    if (o === undefined || o === null) return String(o);
+    const keys = [];
+    for (const k in o) keys.push(k);
+    const kind = o.constructor?.name || typeof o;
+    return `${kind} {${keys.sort().join(",") || "no enumerable keys"}}; storage: ${typeof o.storage}; runtime.id: ${o.runtime?.id ?? "none"}`;
+  };
+  log(`storage via: ${nameOf(api)}; messaging via: ${nameOf(messenger)}`);
+  log(`browser = ${describe(globalThis.browser)}`);
+  log(`chrome = ${describe(globalThis.chrome)}`);
 }
 
 function tick() {
@@ -79,16 +87,15 @@ function tick() {
   wasShowing = showing;
 }
 
-function dayKey(ts) {
-  const d = new Date(ts);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-// Saves straight to extension storage as
-//   { days: { "2026-11-01": { ms: 412000, episodes: 7 }, ... } }
-// Saves from this tab run one at a time so they can't overwrite each other.
+// Saves run one at a time per tab so they can't overwrite each other.
 let saving = Promise.resolve();
+
+// Saves directly to extension storage when this script can reach it,
+// otherwise through the background script.
+function save(key, ms, episodes) {
+  if (api) return addToDay(key, ms, episodes).then((day) => ({ via: "storage", day }));
+  return sendToBackground({ type: "add", key, ms, episodes }).then((res) => ({ via: "background", day: res.day }));
+}
 
 function flush() {
   if (pendingMs === 0 && pendingEpisodes === 0) return;
@@ -98,14 +105,9 @@ function flush() {
   pendingMs = 0;
   pendingEpisodes = 0;
   saving = saving
-    .then(async () => {
-      const { days = {} } = await storageGet("days");
-      const day = days[key] || { ms: 0, episodes: 0 };
-      day.ms += ms;
-      day.episodes += episodes;
-      days[key] = day;
-      await storageSet({ days });
-      log(`saved ${ms} ms, ${episodes} new appearance(s); ${key} total ${day.ms} ms, ${day.episodes}`);
+    .then(() => save(key, ms, episodes))
+    .then(({ via, day }) => {
+      log(`saved ${ms} ms, ${episodes} new appearance(s) via ${via}; ${key} total ${day.ms} ms, ${day.episodes}`);
     })
     .catch((err) => {
       // Keep the numbers so the next flush retries them.

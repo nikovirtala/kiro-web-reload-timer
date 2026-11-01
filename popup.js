@@ -1,5 +1,4 @@
-// Safari and Firefox expose the promise-based `browser` API; Chrome uses `chrome`.
-const api = globalThis.browser ?? chrome;
+// Runs after api.js.
 
 function dayKey(ts) {
   const d = new Date(ts);
@@ -18,7 +17,7 @@ function fmt(ms) {
 }
 
 async function render() {
-  const { days = {} } = await api.storage.local.get("days");
+  const { days = {} } = await storageGet("days");
   const today = days[dayKey(Date.now())] || { ms: 0, episodes: 0 };
   document.getElementById("today").textContent = fmt(today.ms);
   document.getElementById("todayEpisodes").textContent =
@@ -55,9 +54,9 @@ resetButton.addEventListener("click", async () => {
   clearTimeout(resetArmed);
   resetArmed = null;
   resetButton.textContent = resetLabel;
-  await api.storage.local.set({ days: {} });
+  await storageSet({ days: {} });
   render();
 });
 
-api.storage.onChanged.addListener(render);
+api?.storage?.onChanged?.addListener(render);
 render();

@@ -1,10 +1,4 @@
-// Runs after api.js.
-
-function dayKey(ts) {
-  const d = new Date(ts);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// Runs after api.js, which provides dayKey, storageGet and storageSet.
 
 function fmt(ms) {
   const s = Math.round(ms / 1000);

@@ -9,6 +9,11 @@
 //   extension storage whenever it's opened.
 
 const TARGET_TEXT = "Reloading sandbox";
+// Only count the text inside app.kiro.dev's session loading view. Without this,
+// the same words in a chat message (say, while discussing this extension)
+// would count too. If the app renames this marker, nothing will be counted
+// until it's updated here.
+const TARGET_CONTAINER = '[data-testid="session-loading-scroll-area"]';
 const TICK_MS = 1000;
 const FLUSH_MS = 5000;
 const MAX_DELTA_MS = 2 * TICK_MS; // ignore gaps from sleep or a throttled tab
@@ -31,18 +36,21 @@ function isOnScreen(el) {
 //   present: the text is somewhere in the page (even if hidden or scrolled away)
 //   showing: it is on screen in the visible tab right now
 function checkTarget() {
-  if (!document.body) return { present: false, showing: false };
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) =>
-      n.nodeValue.includes(TARGET_TEXT) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
-  });
   const tabVisible = document.visibilityState === "visible";
   let present = false;
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const el = node.parentElement;
-    if (!el) continue;
-    present = true;
-    if (tabVisible && isOnScreen(el)) return { present, showing: true };
+  // Search only inside the loading view, which is also much cheaper than
+  // walking a long chat once a second.
+  for (const container of document.querySelectorAll(TARGET_CONTAINER)) {
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) =>
+        n.nodeValue.trim() === TARGET_TEXT ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const el = node.parentElement;
+      if (!el) continue;
+      present = true;
+      if (tabVisible && isOnScreen(el)) return { present, showing: true };
+    }
   }
   return { present, showing: false };
 }
@@ -53,13 +61,14 @@ function checkTarget() {
 let episodeCounted = false;
 let wasPresent = false;
 
-// Diagnostics: shows up in the page's Web Inspector console.
+// Diagnostics in the page's console. Warnings always show; set DEBUG to true
+// for a line on every change and save.
+const DEBUG = false;
 const LOG_PREFIX = "[Kiro Web Reload Timer]";
 function log(message) {
-  console.info(`${LOG_PREFIX} ${message}`);
+  if (DEBUG) console.info(`${LOG_PREFIX} ${message}`);
 }
-log(`content script loaded on ${location.href}`);
-log(`saving to ${api ? "extension storage" : "page storage (popup collects it)"}`);
+log(`loaded on ${location.href}; saving to ${api ? "extension storage" : "page storage (popup collects it)"}`);
 
 function tick() {
   const now = Date.now();
@@ -84,6 +93,7 @@ function tick() {
 
 // Saves run one at a time per tab so they can't overwrite each other.
 let saving = Promise.resolve();
+let saveFailing = false;
 
 function saveToPage(key, ms, episodes) {
   const all = JSON.parse(localStorage.getItem(PAGE_STORAGE_KEY) || "{}");
@@ -110,14 +120,16 @@ function flush() {
   saving = saving
     .then(() => save(key, ms, episodes))
     .then(({ via, day }) => {
+      saveFailing = false;
       const label = via === "page storage" ? "not yet collected by popup" : "total";
       log(`saved ${ms} ms, ${episodes} new appearance(s) to ${via}; ${key} ${label}: ${day.ms} ms, ${day.episodes}`);
     })
     .catch((err) => {
-      // Keep the numbers so the next flush retries them.
+      // Keep the numbers so the next flush retries them. Warn once per outage.
       pendingMs += ms;
       pendingEpisodes += episodes;
-      console.warn(`${LOG_PREFIX} saving failed, will retry:`, err);
+      if (!saveFailing) console.warn(`${LOG_PREFIX} saving failed, will keep retrying:`, err);
+      saveFailing = true;
     });
 }
 

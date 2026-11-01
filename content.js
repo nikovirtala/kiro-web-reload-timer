@@ -1,9 +1,6 @@
-// Safari and Firefox expose the promise-based `browser` API; Chrome uses `chrome`.
-const api = globalThis.browser ?? chrome;
-
-// Runs on app.kiro.dev. Once a second, checks whether the target text is
-// visible on screen in the active tab and saves the daily totals to
-// extension storage.
+// Runs on app.kiro.dev, after api.js. Once a second, checks whether the
+// target text is visible on screen in the active tab, and saves the daily
+// totals to extension storage.
 
 const TARGET_TEXT = "Reloading sandbox";
 const TICK_MS = 1000;
@@ -56,6 +53,10 @@ function log(message) {
   console.info(`${LOG_PREFIX} ${message}`);
 }
 log(`content script loaded on ${location.href}`);
+{
+  const describe = (o) => (o ? Object.keys(o).sort().join(",") || "(no keys)" : String(o));
+  log(`using extension API: ${apiName}; browser: ${describe(globalThis.browser)}; chrome: ${describe(globalThis.chrome)}`);
+}
 
 function tick() {
   const now = Date.now();
@@ -98,12 +99,12 @@ function flush() {
   pendingEpisodes = 0;
   saving = saving
     .then(async () => {
-      const { days = {} } = await api.storage.local.get("days");
+      const { days = {} } = await storageGet("days");
       const day = days[key] || { ms: 0, episodes: 0 };
       day.ms += ms;
       day.episodes += episodes;
       days[key] = day;
-      await api.storage.local.set({ days });
+      await storageSet({ days });
       log(`saved ${ms} ms, ${episodes} new appearance(s); ${key} total ${day.ms} ms, ${day.episodes}`);
     })
     .catch((err) => {

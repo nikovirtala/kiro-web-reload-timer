@@ -38,9 +38,24 @@ async function render() {
   document.getElementById("historyEmpty").hidden = table.rows.length > 0;
 }
 
-document.getElementById("reset").addEventListener("click", async () => {
-  if (!confirm("Delete all recorded times?")) return;
-  await api.runtime.sendMessage({ type: "reset" });
+// Safari popups don't support confirm(), so ask for a second click instead.
+const resetButton = document.getElementById("reset");
+const resetLabel = resetButton.textContent;
+let resetArmed = null;
+
+resetButton.addEventListener("click", async () => {
+  if (!resetArmed) {
+    resetButton.textContent = "Click again to delete all data";
+    resetArmed = setTimeout(() => {
+      resetArmed = null;
+      resetButton.textContent = resetLabel;
+    }, 3000);
+    return;
+  }
+  clearTimeout(resetArmed);
+  resetArmed = null;
+  resetButton.textContent = resetLabel;
+  await api.storage.local.set({ days: {} });
   render();
 });
 

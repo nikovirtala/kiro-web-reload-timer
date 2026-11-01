@@ -2,8 +2,8 @@
 const api = globalThis.browser ?? chrome;
 
 // Runs on app.kiro.dev. Once a second, checks whether the target text is
-// visible on screen in the active tab and reports elapsed time to the
-// background worker, which keeps the daily totals.
+// visible on screen in the active tab and saves the daily totals to
+// extension storage.
 
 const TARGET_TEXT = "Reloading sandbox";
 const TICK_MS = 1000;
@@ -78,17 +78,38 @@ function tick() {
   wasShowing = showing;
 }
 
+function dayKey(ts) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// Saves straight to extension storage as
+//   { days: { "2026-11-01": { ms: 412000, episodes: 7 }, ... } }
+// Saves from this tab run one at a time so they can't overwrite each other.
+let saving = Promise.resolve();
+
 function flush() {
   if (pendingMs === 0 && pendingEpisodes === 0) return;
-  const msg = { type: "add", ms: pendingMs, episodes: pendingEpisodes, at: Date.now() };
+  const ms = pendingMs;
+  const episodes = pendingEpisodes;
+  const key = dayKey(Date.now());
   pendingMs = 0;
   pendingEpisodes = 0;
-  Promise.resolve(api.runtime.sendMessage(msg))
-    .then(() => log(`saved ${msg.ms} ms, ${msg.episodes} new appearance(s)`))
+  saving = saving
+    .then(async () => {
+      const { days = {} } = await api.storage.local.get("days");
+      const day = days[key] || { ms: 0, episodes: 0 };
+      day.ms += ms;
+      day.episodes += episodes;
+      days[key] = day;
+      await api.storage.local.set({ days });
+      log(`saved ${ms} ms, ${episodes} new appearance(s); ${key} total ${day.ms} ms, ${day.episodes}`);
+    })
     .catch((err) => {
       // Keep the numbers so the next flush retries them.
-      pendingMs += msg.ms;
-      pendingEpisodes += msg.episodes;
+      pendingMs += ms;
+      pendingEpisodes += episodes;
       console.warn(`${LOG_PREFIX} saving failed, will retry:`, err);
     });
 }

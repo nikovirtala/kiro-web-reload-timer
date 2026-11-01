@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font: 13px system-ui, sans-serif; width: 260px; margin: 12px; }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      .today { font-size: 24px; font-weight: 600; }
+      .sub { color: #666; margin-bottom: 12px; }
+      table { width: 100%; border-collapse: collapse; }
+      td { padding: 2px 0; }
+      td:not(:first-child) { text-align: right; }
+      button { margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <h1>"Reloading sandbox" today</h1>
+    <div class="today" id="today">0s</div>
+    <div class="sub" id="todayEpisodes">0 times</div>
+    <table id="history"></table>
+    <button id="reset">Reset all data</button>
+    <script src="popup.js"></script>
+  </body>
+</html>

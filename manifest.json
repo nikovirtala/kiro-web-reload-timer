@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Kiro Web Reload Timer",
+  "version": "1.0.0",
+  "description": "Tracks how long \"Reloading sandbox\" is on screen at app.kiro.dev each day.",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://app.kiro.dev/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Kiro Web Reload Timer" }
+}
